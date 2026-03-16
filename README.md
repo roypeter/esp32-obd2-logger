@@ -18,15 +18,15 @@ Should work on any car that supports standard OBD2 PIDs over CAN (ISO 15765-4, 5
 
 ## Parts list
 
-| Part | Notes | Approx. price |
-|------|-------|---------------|
-| [ESP32 Dev Board](https://robocraze.com/products/esp32-development-board) | Any ESP32-WROOM-32 dev board works | ~₹500 |
-| [TJA1050 CAN Module](https://robu.in/product/tja1050-can-module-green-board/) | 5V module — needs a voltage divider on RX (see wiring). A 3.3V CAN module (e.g. SN65HVD230) is easier if you can find one | ~₹150 |
-| [Micro SD Card Module](https://robu.in/product/micro-sd-card-module/) | HW-125 with onboard level shifter. Power from 5V. **Optional** — without it, logs to ESP32 internal flash (~1.5 MB) | ~₹80 |
-| [0.96" SSD1306 OLED Display](https://robu.in/product/0-96-oled-display-module-spi-i2c-128x64-7-pin-blue/) | 128x64, I2C. **Optional** — the logger works without it | ~₹200 |
-| [OBD2 Extension Cable](https://www.amazon.in/dp/B0F6NGFKQT) | 16-pin male to female — splice into the male end for CAN High/Low | ~₹300 |
-| SD Card | I use a SanDisk Ultra 64GB. Any size works — CSV files are small. **Optional** if you're fine with limited internal flash storage | -- |
-| Jumper wires, solder, etc. | -- | -- |
+| Part | Notes |
+|------|-------|
+| [ESP32 Dev Board](https://robocraze.com/products/esp32-development-board) | Any ESP32-WROOM-32 dev board works |
+| [TJA1050 CAN Module](https://robu.in/product/tja1050-can-module-green-board/) | 5V module — needs a voltage divider on RX (see wiring). A 3.3V CAN module (e.g. SN65HVD230) is easier if you can find one |
+| [Micro SD Card Module](https://robu.in/product/micro-sd-card-module/) | HW-125 with onboard level shifter. Power from 5V. **Optional** — without it, logs to ESP32 internal flash (~1.5 MB) |
+| [0.96" SSD1306 OLED Display](https://robu.in/product/0-96-oled-display-module-spi-i2c-128x64-7-pin-blue/) | 128x64, I2C. **Optional** — the logger works without it |
+| [OBD2 Extension Cable](https://www.amazon.in/dp/B0F6NGFKQT) | 16-pin male to female — splice into the male end for CAN High/Low |
+| SD Card | I use a SanDisk Ultra 64GB. Any size works — CSV files are small. **Optional** if you're fine with limited internal flash storage |
+| Jumper wires, solder, etc. | -- |
 
 I mostly order from [robocraze.com](https://robocraze.com) or [robu.in](https://robu.in) — check both for availability and pricing.
 
