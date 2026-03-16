@@ -331,8 +331,8 @@ void setup() {
     addLog("Storage: %llu KB used / %llu KB total",
            storageUsedBytes() / 1024, storageTotalBytes() / 1024);
 
-    // Create data folder (only needed for SD; LittleFS ignores this)
-    if (useSD && !storage->exists("/data")) storage->mkdir("/data");
+    // Create data folder if it doesn't exist
+    if (!storage->exists("/data")) storage->mkdir("/data");
 
     // Read session counter, increment, and save
     File sf = storage->open("/data/session.txt", "r");
@@ -937,7 +937,7 @@ void loop() {
         xSemaphoreGive(fsMutex);
       }
     } else {
-      Serial.println("WARNING: SD card full! Logging stopped. Download CSV and clear data.");
+      Serial.println("WARNING: Storage full! Logging stopped. Download CSV and clear data.");
     }
 
     Serial.printf("RPM:%d Spd:%d Clt:%d Oil:%d MAP:%d IAT:%d Load:%d%% Tmg:%.1f Thr:%d%% Pedal:%d%% CmdThr:%d%% DmTq:%d%% AcTq:%d%% STFT:%.1f LTFT:%.1f Baro:%d O2S2:%.3fV/%.1f%% CmdEq:%.3f Cat:%dC SecLTFT:%.1f Gear:%d Fuel:%d%% FRate:%.1f Volt:%.2f Amb:%d RefTq:%d Lam:%.3f O2mA:%.2f AbsLd:%.1f Evap:%d%%\n",
