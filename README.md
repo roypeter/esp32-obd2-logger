@@ -4,6 +4,21 @@ A DIY OBD2 data logger built with an ESP32. Reads live engine data over CAN bus,
 
 > **Note:** Only tested on a **2020 Tata Nexon 1.2L Turbo Petrol (6-speed manual)**. Should work on any car with standard OBD2 over CAN (ISO 15765-4, 500 kbps).
 
+## Using AI to review your driving data
+
+Download the CSV from the WiFi dashboard and upload it to an AI model like **Claude** or **Gemini Pro**. You can ask questions like:
+
+- "How is the turbo performance?"
+- "Review if all sensors are working correctly and flag any issues"
+- "Is the fuel trim normal or is the engine running rich/lean?"
+- "Any signs of engine problems based on this data?"
+
+The AI can analyze thousands of rows of sensor data in seconds and give you a plain-English health report of your car.
+
+Here's an example report generated from a real driving session:
+
+![OBD Health & Driving Report](images/nexon_obd_report.png)
+
 ## What it does
 
 - Reads **30+ OBD2 PIDs**: RPM, speed, coolant temp, oil temp, MAP, IAT, engine load, timing advance, throttle, accelerator pedal, fuel trims, O2 sensors, catalyst temp, fuel rate, voltage, and more
