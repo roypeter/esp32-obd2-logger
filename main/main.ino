@@ -2,7 +2,7 @@
 #include <WiFi.h>
 #include <WebServer.h>
 #include <SD.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -16,12 +16,21 @@
 
 #include "driver/twai.h"
 
+struct PidStats;
+
 Adafruit_SSD1306 oled(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 unsigned long lastOledUpdate = 0;
 
-// Storage abstraction — SD card preferred, SPIFFS fallback
+// Storage abstraction — SD card preferred, LittleFS fallback
 FS* storage = nullptr;
 bool useSD = false;
+
+uint64_t storageTotalBytes() {
+  return useSD ? SD.totalBytes() : LittleFS.totalBytes();
+}
+uint64_t storageUsedBytes() {
+  return useSD ? SD.usedBytes() : LittleFS.usedBytes();
+}
 
 // --- Configuration ---
 const char* ssid = "obd2logger";
@@ -300,7 +309,7 @@ void updateOled() {
 void setup() {
   Serial.begin(115200);
   
-  // 1. Initialize storage (SD card preferred, SPIFFS fallback) and mutex
+  // 1. Initialize storage (SD card preferred, LittleFS fallback) and mutex
   fsMutex = xSemaphoreCreateMutex();
 
   bool sdOk = SD.begin(SD_CS);
@@ -309,20 +318,20 @@ void setup() {
     useSD = true;
     addLog("SD card mounted OK — Size: %llu MB", SD.cardSize() / (1024 * 1024));
   } else {
-    addLog("SD card not found, trying internal flash (SPIFFS)");
-    if (SPIFFS.begin(true)) {  // true = format on first use
-      storage = &SPIFFS;
-      addLog("SPIFFS mounted OK (~1.5 MB available, logs fill up fast)");
+    addLog("SD card not found, trying internal flash (LittleFS)");
+    if (LittleFS.begin(true)) {  // true = format on first use
+      storage = &LittleFS;
+      addLog("LittleFS mounted OK (~1.5 MB available, logs fill up fast)");
     } else {
-      addLog("SPIFFS mount FAILED — no storage available");
+      addLog("LittleFS mount FAILED — no storage available");
     }
   }
 
   if (storage) {
     addLog("Storage: %llu KB used / %llu KB total",
-           storage->usedBytes() / 1024, storage->totalBytes() / 1024);
+           storageUsedBytes() / 1024, storageTotalBytes() / 1024);
 
-    // Create data folder (only needed for SD; SPIFFS ignores this)
+    // Create data folder (only needed for SD; LittleFS ignores this)
     if (useSD && !storage->exists("/data")) storage->mkdir("/data");
 
     // Read session counter, increment, and save
@@ -353,10 +362,10 @@ void setup() {
     oled.println("Nexon CAN Logger");
     oled.println();
     if (storage) {
-      uint64_t totalKB = storage->totalBytes() / 1024;
-      uint64_t usedKB = storage->usedBytes() / 1024;
+      uint64_t totalKB = storageTotalBytes() / 1024;
+      uint64_t usedKB = storageUsedBytes() / 1024;
       uint64_t freeKB = totalKB - usedKB;
-      oled.printf("%s  Session #%d\n", useSD ? "SD" : "SPIFFS", sessionNum);
+      oled.printf("%s  Session #%d\n", useSD ? "SD" : "LittleFS", sessionNum);
       if (totalKB >= 1024) {
         oled.printf("Total: %llu MB\n", totalKB / 1024);
         oled.printf("Used:  %llu MB\n", usedKB / 1024);
@@ -489,8 +498,8 @@ void setup() {
   });
 
   server.on("/data", HTTP_GET, []() {
-    uint64_t totalBytes = storage->totalBytes();
-    uint64_t usedBytes = storage->usedBytes();
+    uint64_t totalBytes = storageTotalBytes();
+    uint64_t usedBytes = storageUsedBytes();
     String json = "{\"rpm\":" + String(rpm) + ",\"speed\":" + String(speed_kmh) + ",\"coolant\":" + String(coolant_temp)
       + ",\"oil\":" + String(oil_temp)
       + ",\"map\":" + String(manifold_kpa) + ",\"iat\":" + String(intake_temp)
@@ -911,7 +920,7 @@ void loop() {
 
     unsigned long timestamp = millis();
 
-    uint64_t freeBytes = storage->totalBytes() - storage->usedBytes();
+    uint64_t freeBytes = storageTotalBytes() - storageUsedBytes();
     if (freeBytes > 512) {
       if (xSemaphoreTake(fsMutex, pdMS_TO_TICKS(50))) {
         File file = storage->open(sessionFile, "a");

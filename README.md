@@ -7,7 +7,7 @@ A DIY OBD2 data logger built with an ESP32. Reads live engine data over CAN bus,
 ## What it does
 
 - Reads **30+ OBD2 PIDs**: RPM, speed, coolant temp, oil temp, MAP, IAT, engine load, timing advance, throttle, accelerator pedal, fuel trims, O2 sensors, catalyst temp, fuel rate, voltage, and more
-- **Logs to CSV** at ~4 Hz with automatic session numbering — SD card preferred, falls back to ESP32 internal flash (SPIFFS) if no SD card is present
+- **Logs to CSV** at ~4 Hz with automatic session numbering — SD card preferred, falls back to ESP32 internal flash (LittleFS) if no SD card is present
 - **OLED display** (optional) — rotates between live data, running averages, and session stats (max boost, trip distance, fuel economy)
 - **WiFi dashboard** — connect your phone to see live gauges, download CSV files, and check PID status
 - **Smart polling** — fast-changing PIDs polled at ~4 Hz, slow-changing PIDs at ~1 Hz
@@ -63,7 +63,7 @@ ESP32 GPIO18 ──  SCK
 ESP32 GPIO15 ──  CS
 ```
 
-> If no SD card module is connected, the logger automatically falls back to the ESP32's internal flash (SPIFFS, ~1.5 MB). This gives you roughly 30 minutes of logging. Download the CSV over WiFi before it fills up.
+> If no SD card module is connected, the logger automatically falls back to the ESP32's internal flash (LittleFS, ~1.5 MB). This gives you roughly 30 minutes of logging. Download the CSV over WiFi before it fills up.
 
 ### ESP32 to OLED Display (optional)
 
@@ -105,7 +105,7 @@ On startup, the OLED (if connected) shows:
 ```
 Nexon CAN Logger
 
-SD  Session #1            (or "SPIFFS  Session #1" if no SD card)
+SD  Session #1            (or "LittleFS  Session #1" if no SD card)
 Total: 59000 MB
 Used:  12 MB
 Free:  58988 MB
@@ -128,7 +128,7 @@ You'll see a live dashboard with all the gauges updating every second:
 
 ### 3. Data logging
 
-Logging starts automatically on boot. Each power cycle creates a new session file (`s001.csv`, `s002.csv`, ...). With an SD card, files are stored in `/data/` on the card. Without one, they go to the ESP32's internal flash (SPIFFS).
+Logging starts automatically on boot. Each power cycle creates a new session file (`s001.csv`, `s002.csv`, ...). With an SD card, files are stored in `/data/` on the card. Without one, they go to the ESP32's internal flash (LittleFS).
 
 CSV columns:
 ```
@@ -155,7 +155,7 @@ Plus periodic status:
 
 ## Notes
 
-- **SD card is optional.** If no SD card is found, the logger falls back to ESP32 internal flash (SPIFFS, ~1.5 MB). That's roughly 30 minutes of logging at 4 Hz — download the CSV over WiFi before it fills up. If neither SD nor SPIFFS can mount, the ESP32 won't start (nothing to log to).
+- **SD card is optional.** If no SD card is found, the logger falls back to ESP32 internal flash (LittleFS, ~1.5 MB). That's roughly 30 minutes of logging at 4 Hz — download the CSV over WiFi before it fills up. If neither SD nor LittleFS can mount, the ESP32 won't start (nothing to log to).
 - **OLED is optional.** If not connected, everything else works normally.
 - **Not all PIDs will work on every car.** The logger auto-disables PIDs that your car's ECU doesn't support. Check the PID Status page (`/timeouts`) to see which ones your car responds to.
 - **Gear estimation** is calibrated for the Nexon 1.2T 6-speed manual gearbox. If you're using a different car, you'll need to adjust the `GEAR_RATIO_MIN[]` and `GEAR_RATIO_MAX[]` arrays in the code.
