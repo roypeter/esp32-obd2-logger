@@ -12,3 +12,7 @@ skidl_REPL.*
 
 # KiCad lock files
 *.lck
+
+# KiCad cache files
+fp-info-cache
+*-backups/
