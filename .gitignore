@@ -4,3 +4,11 @@ build/
 *.elf
 *.bin
 *.map
+
+# SKiDL generated logs
+*.erc
+*.log
+skidl_REPL.*
+
+# KiCad lock files
+*.lck
