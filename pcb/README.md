@@ -2,6 +2,8 @@
 
 A carrier board with sockets for all the modules. No SMD soldering — just plug in the modules and go.
 
+Board size: **92mm x 60mm** (2-layer)
+
 ## What's on the board
 
 | Socket | Pins | Notes |
@@ -15,25 +17,24 @@ A carrier board with sockets for all the modules. No SMD soldering — just plug
 | OBD2 connector | 4-pin JST-XH | CANH, CANL, GND, +12V (12V pin unused for now) |
 | R1 (1kΩ) + R2 (2.2kΩ) | Through-hole | Voltage divider for TJA1050 RX. Leave empty if using SN65HVD230 |
 
-## Generate the netlist
+## Generate the PCB
+
+The PCB is generated programmatically using KiCad's `pcbnew` Python API. Run with KiCad's bundled Python:
 
 ```bash
-pip install skidl
 cd pcb
-python obd2_logger_pcb.py
+/Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3 generate_pcb.py
 ```
 
-This generates `obd2_logger.net`.
+This creates the complete PCB with components placed and traces routed at `obd2_logger/obd2_logger.kicad_pcb`.
 
-## View and layout in KiCad
+## View in KiCad
 
 1. Install [KiCad](https://www.kicad.org/download/) (free, open-source)
-2. Open KiCad → **New Project**
-3. Open the PCB editor (**pcbnew**)
-4. **File → Import Netlist** → select `obd2_logger.net`
-5. All components appear stacked — drag them into position
-6. Route the traces (or use the auto-router)
-7. Export gerbers: **File → Fabrication Outputs → Gerbers**
+2. Open KiCad → **File → Open Project** → select `obd2_logger/obd2_logger.kicad_pro`
+3. Double-click the PCB file to open in **pcbnew**
+4. **View → 3D Viewer** (Alt+3) for a 3D preview
+5. Export gerbers: **File → Fabrication Outputs → Gerbers**
 
 ## Order PCBs
 
