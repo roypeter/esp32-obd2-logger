@@ -392,8 +392,11 @@ track_L(board, nets["VCC_3V3"], e_3v3r[0], e_3v3r[1], e_3v3r[0] + 2, v3_bus_y, T
 # --- VCC_5V: runs along BOTTOM edge ---
 v5_bus_y = BOARD_H - 2.5  # 5V bus Y (near bottom edge)
 
-# ESP32_L pin 16 (VIN) down to bus
-track(board, nets["VCC_5V"], EL_X, esp_pin_y(16), EL_X, v5_bus_y, TW_PWR)
+# ESP32_L pin 16 (VIN) — route LEFT first to clear pins 17-19, then down to bus
+vin_escape_x = EL_X - 3
+track(board, nets["VCC_5V"], EL_X, esp_pin_y(16), vin_escape_x, esp_pin_y(16), TW_PWR)
+track(board, nets["VCC_5V"], vin_escape_x, esp_pin_y(16), vin_escape_x, v5_bus_y, TW_PWR)
+track(board, nets["VCC_5V"], vin_escape_x, v5_bus_y, EL_X, v5_bus_y, TW_PWR)
 # Bus runs right
 track(board, nets["VCC_5V"], EL_X, v5_bus_y, MOD_X2 + 5, v5_bus_y, TW_PWR)
 
