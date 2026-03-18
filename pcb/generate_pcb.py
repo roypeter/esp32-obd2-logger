@@ -167,11 +167,13 @@ oled = add_footprint(board,
     "Connector_JST", "JST_XH_B4B-XH-A_1x04_P2.50mm_Vertical",
     "J_OLED", "SSD1306_OLED", MOD_X1, oled_ref_y, 180)
 
-# RTC — also rotated 180° (2.54mm pitch header)
-rtc_ref_y = esp_pin_y(2)
+# RTC — 6-pin header: 32K, SQW, SCL, SDA, VCC, GND (top to bottom)
+# No rotation needed — SCL (pin 3) is above SDA (pin 4), matching ESP32 order
+# Place so SCL (pin 3, offset 2*2.54=5.08) aligns with ESP32_R pin 2 (SCL)
+rtc_ref_y = esp_pin_y(2) - 2 * PITCH  # pin 1 position so pin 3 aligns with esp pin 2
 rtc = add_footprint(board,
-    "Connector_PinHeader_2.54mm", "PinHeader_1x04_P2.54mm_Vertical",
-    "J_RTC", "DS3231_RTC", MOD_X2, rtc_ref_y, 180)
+    "Connector_PinHeader_2.54mm", "PinHeader_1x06_P2.54mm_Vertical",
+    "J_RTC", "DS3231_RTC", MOD_X2, rtc_ref_y)
 
 # SD card — place so MISO (pin 3) aligns with ESP32_R pin 6 (D19)
 # Pin 3 is at offset 2*2.54=5.08mm from pin 1. So pin1_y = esp_pin_y(6) - 5.08 = esp_pin_y(4)
@@ -262,11 +264,12 @@ assign_net(oled, 2, nets["VCC_3V3"])
 assign_net(oled, 3, nets["I2C_SDA"])
 assign_net(oled, 4, nets["I2C_SCL"])
 
-# RTC: 1=GND, 2=VCC, 3=SDA, 4=SCL
-assign_net(rtc, 1, nets["GND"])
-assign_net(rtc, 2, nets["VCC_3V3"])
-assign_net(rtc, 3, nets["I2C_SDA"])
-assign_net(rtc, 4, nets["I2C_SCL"])
+# RTC: 1=32K, 2=SQW, 3=SCL, 4=SDA, 5=VCC, 6=GND
+# Pins 1,2 unused (32K, SQW)
+assign_net(rtc, 3, nets["I2C_SCL"])
+assign_net(rtc, 4, nets["I2C_SDA"])
+assign_net(rtc, 5, nets["VCC_3V3"])
+assign_net(rtc, 6, nets["GND"])
 
 # OBD2: 3=GND
 assign_net(obd2, 3, nets["GND"])
@@ -284,14 +287,14 @@ assign_net(obd2, 3, nets["GND"])
 # I2C_SCL: ESP32_R pin 2 → OLED pin 4 → RTC pin 4
 e_scl = pad_xy(esp_r, 2)
 o_scl = pad_xy(oled, 4)
-r_scl = pad_xy(rtc, 4)
+r_scl = pad_xy(rtc, 3)
 track_L(board, nets["I2C_SCL"], e_scl[0], e_scl[1], o_scl[0], o_scl[1])
 track_L(board, nets["I2C_SCL"], o_scl[0], o_scl[1], r_scl[0], r_scl[1])
 
 # I2C_SDA: ESP32_R pin 5 → OLED pin 3 → RTC pin 3
 e_sda = pad_xy(esp_r, 5)
 o_sda = pad_xy(oled, 3)
-r_sda = pad_xy(rtc, 3)
+r_sda = pad_xy(rtc, 4)
 track_L(board, nets["I2C_SDA"], e_sda[0], e_sda[1], o_sda[0], o_sda[1])
 track_L(board, nets["I2C_SDA"], o_sda[0], o_sda[1], r_sda[0], r_sda[1])
 
@@ -375,7 +378,7 @@ track(board, nets["VCC_3V3"], tap_x_oled, v3_bus_y, tap_x_oled, o_vcc[1], TW_PWR
 track(board, nets["VCC_3V3"], tap_x_oled, o_vcc[1], o_vcc[0], o_vcc[1], TW_PWR)
 
 # Tap down to RTC VCC (pin 2)
-r_vcc = pad_xy(rtc, 2)
+r_vcc = pad_xy(rtc, 5)
 tap_x_rtc = MOD_X2 + 5
 track(board, nets["VCC_3V3"], tap_x_rtc, v3_bus_y, tap_x_rtc, r_vcc[1], TW_PWR)
 track(board, nets["VCC_3V3"], tap_x_rtc, r_vcc[1], r_vcc[0], r_vcc[1], TW_PWR)
@@ -420,7 +423,7 @@ track(board, nets["VCC_5V"], tap_x_c5, c5_vcc[1], c5_vcc[0], c5_vcc[1], TW_PWR)
 gnd_pads = [
     (esp_l, 15), (esp_r, 14),
     (can5v, 2), (can3v, 2), (r2, 2),
-    (sd, 1), (oled, 1), (rtc, 1), (obd2, 3),
+    (sd, 1), (oled, 1), (rtc, 6), (obd2, 3),
 ]
 
 gnd_via_positions = []
