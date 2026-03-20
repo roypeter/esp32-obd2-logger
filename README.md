@@ -176,6 +176,10 @@ Plus periodic status:
 - **Gear estimation** is calibrated for the Nexon 1.2T 6-speed manual gearbox. If you're using a different car, you'll need to adjust the `GEAR_RATIO_MIN[]` and `GEAR_RATIO_MAX[]` arrays in the code.
 - **WiFi range** is limited to a few meters — it's meant for use inside the car.
 
+## 3D Printable Cases
+
+If you are looking to enclose your logger components, check out the [3D Printable Cases](3dprint/README.md) provided in the `3dprint` folder. It includes basic housings for the ESP32, S3 module, and OLED display.
+
 ## License
 
 This project is licensed under [CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/) — free to use, share, and modify for non-commercial purposes with attribution. No warranty.
