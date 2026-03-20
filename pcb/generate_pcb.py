@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
 """
-Generate a complete KiCad PCB with components placed and traces routed.
+Generate KiCad PCB with components placed and nets assigned — NO traces.
+Route interactively in KiCad pcbnew (the ratsnest shows unrouted connections).
+
 Run with KiCad's Python:
   /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/bin/python3 generate_pcb.py
+
+Routing guide (use pcbnew interactive router):
+  - Signal traces: 0.5mm on F.Cu
+  - Power traces: 1.0mm on F.Cu
+  - GND: use vias + B.Cu to avoid crossings
+  - SD_CS may need a via to B.Cu to avoid crossing other signals
 """
 
 import pcbnew
@@ -12,14 +20,10 @@ MM = pcbnew.FromMM
 PITCH = 2.54
 
 # ============================================================
-# Layout strategy v5:
+# Layout:
 # - ESP32 headers on the left
-# - Module headers at board EDGES, modules extend OUTWARD:
-#     SD card & RTC at top edge (rotated 90°, modules extend UP)
-#     CAN modules at right edge (vertical, modules extend RIGHT)
-# - Connectors (OLED JST, OBD2 JST) and resistors in the interior
+# - Module headers at board EDGES, modules extend OUTWARD
 # - M3 mounting holes in all 4 corners
-# - Standard trace widths: 0.5mm signal, 1.0mm power
 # ============================================================
 
 BOARD_W = 80
@@ -29,25 +33,14 @@ BOARD_H = 56
 EL_X = 8        # left header X
 ER_X = 8 + 22.86  # right header X (30.86)
 ESP_Y = 5       # top of headers (pin 1)
-# ESP32 bottom: ESP_Y + 18*2.54 = 5 + 45.72 = 50.72
-
-# Track widths (standard)
-TW_SIG = 0.5
-TW_PWR = 1.0
 
 # Mounting hole offset from board edge
 MH_OFFSET = 3.5
-MH_DRILL = 3.2  # M3 screw
 
 
 # ============================================================
 # Helpers
 # ============================================================
-
-def esp_pin_y(pin):
-    """Y position of ESP32 header pin (1-indexed)."""
-    return ESP_Y + (pin - 1) * PITCH
-
 
 def add_footprint(board, lib, fp_name, ref, value, x, y, angle=0):
     fp = pcbnew.FootprintLoad(
@@ -61,15 +54,6 @@ def add_footprint(board, lib, fp_name, ref, value, x, y, angle=0):
         fp.SetOrientationDegrees(angle)
     board.Add(fp)
     return fp
-
-
-def pad_xy(fp, pad_num):
-    """Return pad position in mm as (x, y) tuple."""
-    for pad in fp.Pads():
-        if pad.GetNumber() == str(pad_num):
-            p = pad.GetPosition()
-            return (p.x / 1e6, p.y / 1e6)
-    raise ValueError(f"Pad {pad_num} not found on {fp.GetReference()}")
 
 
 def assign_net(fp, pad_num, net):
@@ -86,45 +70,17 @@ def make_net(board, name, net_dict):
     return n
 
 
-def track(board, net, x1, y1, x2, y2, width=TW_SIG, layer=pcbnew.F_Cu):
-    """Add a track segment using mm coordinates."""
-    t = pcbnew.PCB_TRACK(board)
-    t.SetStart(pcbnew.VECTOR2I(MM(x1), MM(y1)))
-    t.SetEnd(pcbnew.VECTOR2I(MM(x2), MM(y2)))
-    t.SetWidth(MM(width))
-    t.SetLayer(layer)
-    t.SetNet(net)
-    board.Add(t)
-
-
-def track_L(board, net, x1, y1, x2, y2, width=TW_SIG, layer=pcbnew.F_Cu, h_first=True):
-    """L-shaped route: horizontal then vertical (or vertical then horizontal)."""
-    if h_first:
-        track(board, net, x1, y1, x2, y1, width, layer)
-        track(board, net, x2, y1, x2, y2, width, layer)
-    else:
-        track(board, net, x1, y1, x1, y2, width, layer)
-        track(board, net, x1, y2, x2, y2, width, layer)
-
-
-def via_at(board, net, x, y):
-    v = pcbnew.PCB_VIA(board)
-    v.SetPosition(pcbnew.VECTOR2I(MM(x), MM(y)))
-    v.SetDrill(MM(0.3))
-    v.SetWidth(MM(0.6))
-    v.SetNet(net)
-    v.SetViaType(pcbnew.VIATYPE_THROUGH)
-    board.Add(v)
-
-
+_mh_count = 0
 def add_mounting_hole(board, x, y):
     """Add M3 mounting hole (NPTH)."""
+    global _mh_count
+    _mh_count += 1
     fp = pcbnew.FootprintLoad(
         "/Applications/KiCad/KiCad.app/Contents/SharedSupport/footprints/MountingHole.pretty",
         "MountingHole_3.2mm_M3"
     )
-    fp.SetReference("")
-    fp.SetValue("")
+    fp.SetReference(f"MH{_mh_count}")
+    fp.SetValue("MountingHole")
     fp.SetPosition(pcbnew.VECTOR2I(MM(x), MM(y)))
     board.Add(fp)
 
@@ -173,7 +129,6 @@ esp_r = add_footprint(board,
     "J_ESP32_R", "ESP32_Right", ER_X, ESP_Y)
 
 # --- SD card at TOP edge (rotated 90°, module extends UP) ---
-# More clearance from ESP32 (>15mm from ESP32_R)
 SD_X = 46
 SD_Y = 3.5
 sd = add_footprint(board,
@@ -290,154 +245,25 @@ assign_net(obd2, 3, nets["GND"])
 
 
 # ============================================================
-# Route signals on F.Cu
+# Save PCB and export Specctra DSN for freerouting
 # ============================================================
 
-# --- I2C ---
-e_scl = pad_xy(esp_r, 2)
-o_scl = pad_xy(oled, 4)
-r_scl = pad_xy(rtc, 3)
-track_L(board, nets["I2C_SCL"], e_scl[0], e_scl[1], o_scl[0], o_scl[1])
-track_L(board, nets["I2C_SCL"], o_scl[0], o_scl[1], r_scl[0], r_scl[1])
+script_dir = os.path.dirname(os.path.abspath(__file__))
+output_path = os.path.join(script_dir, "obd2_logger", "obd2_logger.kicad_pcb")
+dsn_path = os.path.join(script_dir, "obd2_logger", "obd2_logger.dsn")
 
-e_sda = pad_xy(esp_r, 5)
-o_sda = pad_xy(oled, 3)
-r_sda = pad_xy(rtc, 4)
-track_L(board, nets["I2C_SDA"], e_sda[0], e_sda[1], o_sda[0], o_sda[1])
-track_L(board, nets["I2C_SDA"], o_sda[0], o_sda[1], r_sda[0], r_sda[1])
-
-# --- SD Card ---
-e_miso = pad_xy(esp_r, 6)
-s_miso = pad_xy(sd, 3)
-track_L(board, nets["SD_MISO"], e_miso[0], e_miso[1], s_miso[0], s_miso[1], h_first=False)
-
-e_sck = pad_xy(esp_r, 7)
-s_sck = pad_xy(sd, 5)
-track_L(board, nets["SD_SCK"], e_sck[0], e_sck[1], s_sck[0], s_sck[1], h_first=False)
-
-e_mosi = pad_xy(esp_r, 1)
-s_mosi = pad_xy(sd, 4)
-track_L(board, nets["SD_MOSI"], e_mosi[0], e_mosi[1], s_mosi[0], s_mosi[1], h_first=False)
-
-# SD CS: ESP32_R pin 13 (D15) → SD pin 6, route on B.Cu to avoid crossings
-e_cs = pad_xy(esp_r, 13)
-s_cs = pad_xy(sd, 6)
-via_x_cs = ER_X + 3
-via_at(board, nets["SD_CS"], via_x_cs, e_cs[1])
-track(board, nets["SD_CS"], e_cs[0], e_cs[1], via_x_cs, e_cs[1])
-track(board, nets["SD_CS"], via_x_cs, e_cs[1], via_x_cs, s_cs[1], layer=pcbnew.B_Cu)
-via_at(board, nets["SD_CS"], via_x_cs, s_cs[1])
-track(board, nets["SD_CS"], via_x_cs, s_cs[1], s_cs[0], s_cs[1])
-
-# --- CAN ---
-e_ctx = pad_xy(esp_r, 8)
-c5_ctx = pad_xy(can5v, 3)
-c3_ctx = pad_xy(can3v, 4)
-track_L(board, nets["CAN_TX"], e_ctx[0], e_ctx[1], c5_ctx[0], c5_ctx[1])
-track(board, nets["CAN_TX"], c5_ctx[0], c5_ctx[1], c5_ctx[0], c3_ctx[1])
-track(board, nets["CAN_TX"], c5_ctx[0], c3_ctx[1], c3_ctx[0], c3_ctx[1])
-
-c5_crx = pad_xy(can5v, 4)
-r1_1 = pad_xy(r1, 1)
-track_L(board, nets["CAN_RX_5V"], c5_crx[0], c5_crx[1], r1_1[0], r1_1[1], h_first=False)
-
-r1_2 = pad_xy(r1, 2)
-r2_1 = pad_xy(r2, 1)
-track_L(board, nets["CAN_RX"], r1_2[0], r1_2[1], r2_1[0], r2_1[1], h_first=False)
-
-e_crx = pad_xy(esp_r, 11)
-track_L(board, nets["CAN_RX"], e_crx[0], e_crx[1], r2_1[0], r2_1[1])
-
-c3_crx = pad_xy(can3v, 3)
-track_L(board, nets["CAN_RX"], c3_crx[0], c3_crx[1], r1_2[0], r1_2[1])
-
-
-# ============================================================
-# Route power on F.Cu — wide traces
-# ============================================================
-
-# --- VCC_3V3: runs along LEFT edge then across top ---
-v3_bus_x = 3
-v3_top_y = 2
-
-# ESP32_L pin 1 (3V3) left to bus
-track(board, nets["VCC_3V3"], EL_X, esp_pin_y(1), v3_bus_x, esp_pin_y(1), TW_PWR)
-track(board, nets["VCC_3V3"], v3_bus_x, esp_pin_y(1), v3_bus_x, v3_top_y, TW_PWR)
-track(board, nets["VCC_3V3"], v3_bus_x, v3_top_y, BOARD_W - 2, v3_top_y, TW_PWR)
-
-# Tap to OLED VCC (pin 2)
-o_vcc = pad_xy(oled, 2)
-tap_x_oled = o_vcc[0] - 2
-track(board, nets["VCC_3V3"], tap_x_oled, v3_top_y, tap_x_oled, o_vcc[1], TW_PWR)
-track(board, nets["VCC_3V3"], tap_x_oled, o_vcc[1], o_vcc[0], o_vcc[1], TW_PWR)
-
-# Tap to RTC VCC (pin 5)
-r_vcc = pad_xy(rtc, 5)
-track(board, nets["VCC_3V3"], r_vcc[0], v3_top_y, r_vcc[0], r_vcc[1], TW_PWR)
-
-# Tap to CAN_3V3 VCC (pin 1)
-c3_vcc = pad_xy(can3v, 1)
-track(board, nets["VCC_3V3"], BOARD_W - 2, v3_top_y, BOARD_W - 2, c3_vcc[1], TW_PWR)
-track(board, nets["VCC_3V3"], BOARD_W - 2, c3_vcc[1], c3_vcc[0], c3_vcc[1], TW_PWR)
-
-# ESP32_R pin 15 (3V3) — connect to left bus
-e_3v3r = pad_xy(esp_r, 15)
-track(board, nets["VCC_3V3"], e_3v3r[0], e_3v3r[1], v3_bus_x, e_3v3r[1], TW_PWR)
-
-# --- VCC_5V: runs along BOTTOM edge ---
-v5_bus_y = BOARD_H - 2
-
-# ESP32_L pin 16 (VIN) — route left to clear pins 17-19, then down
-vin_escape_x = EL_X - 3
-track(board, nets["VCC_5V"], EL_X, esp_pin_y(16), vin_escape_x, esp_pin_y(16), TW_PWR)
-track(board, nets["VCC_5V"], vin_escape_x, esp_pin_y(16), vin_escape_x, v5_bus_y, TW_PWR)
-track(board, nets["VCC_5V"], vin_escape_x, v5_bus_y, BOARD_W - 2, v5_bus_y, TW_PWR)
-
-# Tap to SD VCC (pin 2)
-s_vcc = pad_xy(sd, 2)
-track(board, nets["VCC_5V"], s_vcc[0], v5_bus_y, s_vcc[0], s_vcc[1], TW_PWR)
-
-# Tap to CAN_5V VCC (pin 1)
-c5_vcc = pad_xy(can5v, 1)
-track(board, nets["VCC_5V"], BOARD_W - 2, v5_bus_y, BOARD_W - 2, c5_vcc[1], TW_PWR)
-track(board, nets["VCC_5V"], BOARD_W - 2, c5_vcc[1], c5_vcc[0], c5_vcc[1], TW_PWR)
-
-
-# ============================================================
-# Route GND on B.Cu with vias
-# ============================================================
-
-gnd_pads = [
-    (esp_l, 15), (esp_r, 14),
-    (can5v, 2), (can3v, 2), (r2, 2),
-    (sd, 1), (oled, 1), (rtc, 6), (obd2, 3),
-]
-
-gnd_via_positions = []
-for fp, pn in gnd_pads:
-    px, py = pad_xy(fp, pn)
-    vx = px + 1.5
-    vy = py
-    via_at(board, nets["GND"], vx, vy)
-    track(board, nets["GND"], px, py, vx, vy, TW_PWR)
-    gnd_via_positions.append((vx, vy))
-
-# Connect all GND vias on B.Cu
-gnd_via_positions.sort(key=lambda p: (p[1], p[0]))
-for i in range(len(gnd_via_positions) - 1):
-    x1, y1 = gnd_via_positions[i]
-    x2, y2 = gnd_via_positions[i + 1]
-    track(board, nets["GND"], x1, y1, x2, y1, TW_PWR, pcbnew.B_Cu)
-    track(board, nets["GND"], x2, y1, x2, y2, TW_PWR, pcbnew.B_Cu)
-
-
-# ============================================================
-# Save
-# ============================================================
-
-output_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                           "obd2_logger", "obd2_logger.kicad_pcb")
 board.Save(output_path)
 print(f"PCB saved: {output_path}")
 print(f"Board size: {BOARD_W}mm x {BOARD_H}mm")
-print("Open in KiCad to view!")
+
+# Export Specctra DSN for freerouting
+ok = pcbnew.ExportSpecctraDSN(board, dsn_path)
+if ok:
+    print(f"DSN exported: {dsn_path}")
+else:
+    print("WARNING: DSN export failed")
+
+print()
+print("Next steps:")
+print(f"  1. Autoroute:  java -jar freerouting-2.1.0.jar -de {dsn_path} -do {dsn_path.replace('.dsn', '.ses')} -mp 20")
+print(f"  2. Import SES: In pcbnew → File → Import → Specctra Session → select obd2_logger.ses")

@@ -268,7 +268,7 @@
       "netlist": "",
       "plot": "",
       "pos_files": "",
-      "specctra_dsn": "",
+      "specctra_dsn": "obd2_logger.dsn",
       "step": "",
       "svg": "",
       "vrml": ""
